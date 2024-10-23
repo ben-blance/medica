@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:medika/dashboard.dart';
 import 'package:medika/patientDashboard.dart';
+import 'package:medika/patientLogin.dart';
 
 class Choose extends StatelessWidget {
   @override
@@ -32,7 +33,7 @@ class Choose extends StatelessWidget {
 
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => PatientDashboardScreen()),
+                  MaterialPageRoute(builder: (context) => PatientLoginScreen()),
                 );
               },
               child: Text('Patient'),

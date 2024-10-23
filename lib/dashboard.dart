@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:medika/addPatient.dart';
 import 'package:medika/patientDetail.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DashboardScreen extends StatefulWidget {
   @override
@@ -8,19 +9,42 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  List<Map<String, String>> patients = [];
+  final SupabaseClient supabase = Supabase.instance.client;
+  List<Map<String, dynamic>> patients = [];
+  bool _isLoading = false;
 
-  // Method to add a new patient
-  void _addPatient(String name) {
-    setState(() {
-      patients.add({
-        "name": name,
-        "id": "ID: ${patients.length + 12345}",
-        "gender": "Unknown", // Default or placeholder gender
-        "dob": "Unknown",    // Default or placeholder DOB
-        "age": "Unknown"     // Default or placeholder age
-      });
-    });
+  @override
+  void initState() {
+    super.initState();
+    _fetchPatients();
+  }
+
+  Future<void> _fetchPatients() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await supabase
+          .from('patients')
+          .select()
+          .order('currentdate', ascending: false); // Changed from created_at to currentdate
+
+      if (mounted) {
+        setState(() {
+          patients = List<Map<String, dynamic>>.from(response);
+          _isLoading = false;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error fetching patients: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -62,81 +86,77 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                 ),
-
               ],
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: patients.length,
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+            child: _isLoading
+                ? Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+              onRefresh: _fetchPatients,
+              child: ListView.builder(
+                itemCount: patients.length,
+                itemBuilder: (context, index) {
+                  final patient = patients[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        backgroundColor: Colors.green,
                       ),
-                      backgroundColor: Colors.green,
-                    ),
-                    onPressed: () {
-                      // Navigate to the PatientDetailScreen with patient data
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => PatientDetailScreen(
-                            name: patients[index]['name']!,
-                            id: patients[index]['id']!,
-                            gender: patients[index]['gender'], // Add other patient info
-                            dob: patients[index]['dob'],
-                            age: patients[index]['age'],
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PatientDetailScreen(
+                              id: patient['id'].toString(),
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                patients[index]['name']!,
-                                style: TextStyle(fontSize: 18, color: Colors.white),
-                                textAlign: TextAlign.left,
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                patients[index]['id']!,
-                                style: TextStyle(fontSize: 14, color: Colors.white70),
-                                textAlign: TextAlign.left,
-                              ),
-                            ],
+                        );
+                      },
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  patient['name'] ?? '',
+                                  style: TextStyle(fontSize: 18, color: Colors.white),
+                                  textAlign: TextAlign.left,
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'ID: ${patient['id']}',
+                                  style: TextStyle(fontSize: 14, color: Colors.white70),
+                                  textAlign: TextAlign.left,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          // Navigate to the AddPatientScreen when the FAB is pressed
-          final newPatientName = await Navigator.push(
+          await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => AddPatientScreen()),
           );
-
-          // If a new patient name is returned, add it to the list
-          if (newPatientName != null) {
-            _addPatient(newPatientName);
-          }
+          // Refresh the patient list after adding a new patient
+          _fetchPatients();
         },
         child: Icon(Icons.add),
         backgroundColor: Colors.green,

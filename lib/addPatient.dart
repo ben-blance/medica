@@ -1,64 +1,90 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // For formatting dates
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:math';
 
 class AddPatientScreen extends StatefulWidget {
+  const AddPatientScreen({Key? key}) : super(key: key);
+
   @override
   _AddPatientScreenState createState() => _AddPatientScreenState();
 }
 
 class _AddPatientScreenState extends State<AddPatientScreen> {
   final _formKey = GlobalKey<FormState>();
-  String? _name;
-  DateTime? _dob; // Date of Birth
-  String? _age; // Age calculated from DOB
+  final _nameController = TextEditingController();
+  DateTime? _dob;
+  String? _age;
   String? _gender;
+  bool _isLoading = false;
 
-  // Gender options
   final List<String> _genders = ['Male', 'Female', 'Other'];
+  final SupabaseClient supabase = Supabase.instance.client;
 
-  final SupabaseClient supabase = Supabase.instance.client; // Supabase client instance
+  // Function to generate random alphanumeric password
+  String _generatePassword() {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final random = Random.secure();
+    return List.generate(10, (index) => chars[random.nextInt(chars.length)]).join();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Add Patient'),
+        title: const Text('Add Patient'),
       ),
-      body: Padding(
-        padding: EdgeInsets.all(16.0),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextFormField(
-                decoration: InputDecoration(labelText: 'Name'),
-                onSaved: (value) {
-                  _name = value;
-                },
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person),
+                ),
+                textCapitalization: TextCapitalization.words,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Please enter the patient name';
                   }
                   return null;
                 },
               ),
-              SizedBox(height: 16),
-              // Date of Birth Picker
-              ListTile(
-                title: Text(
-                  _dob == null
-                      ? 'Select Date of Birth'
-                      : 'DOB: ${DateFormat('yyyy-MM-dd').format(_dob!)}',
+              const SizedBox(height: 16),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.calendar_today),
+                  title: Text(
+                    _dob == null
+                        ? 'Select Date of Birth'
+                        : 'DOB: ${DateFormat('yyyy-MM-dd').format(_dob!)}',
+                  ),
+                  subtitle: _dob != null ? Text('Age: $_age years') : null,
+                  onTap: _pickDate,
                 ),
-                subtitle: _dob != null ? Text('Age: $_age years') : null,
-                trailing: Icon(Icons.calendar_today),
-                onTap: _pickDate,
               ),
-              SizedBox(height: 16),
-              // Gender Dropdown
-              DropdownButtonFormField(
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
                 value: _gender,
+                decoration: const InputDecoration(
+                  labelText: 'Gender',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.people),
+                ),
                 items: _genders.map((gender) {
                   return DropdownMenuItem(
                     value: gender,
@@ -67,10 +93,9 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                 }).toList(),
                 onChanged: (value) {
                   setState(() {
-                    _gender = value as String?;
+                    _gender = value;
                   });
                 },
-                decoration: InputDecoration(labelText: 'Gender'),
                 validator: (value) {
                   if (value == null) {
                     return 'Please select a gender';
@@ -78,15 +103,13 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
                   return null;
                 },
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    _formKey.currentState!.save();
-                    _addPatient(); // Call the function to add patient
-                  }
-                },
-                child: Text('Submit'),
+                onPressed: _isLoading ? null : _addPatient,
+                child: Text(_isLoading ? 'Saving...' : 'Save Patient'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
               ),
             ],
           ),
@@ -95,53 +118,84 @@ class _AddPatientScreenState extends State<AddPatientScreen> {
     );
   }
 
-  // Function to pick a date of birth
   Future<void> _pickDate() async {
-    DateTime? pickedDate = await showDatePicker(
+    final DateTime? pickedDate = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(), // Current date for initial display
-      firstDate: DateTime(1900), // Limit past dates
-      lastDate: DateTime.now(), // Cannot pick a future date
+      initialDate: DateTime.now(),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
     );
+
     if (pickedDate != null && pickedDate != _dob) {
       setState(() {
         _dob = pickedDate;
-        _age = _calculateAge(pickedDate).toString(); // Calculate age
+        _age = _calculateAge(pickedDate).toString();
       });
     }
   }
 
-  // Function to calculate age based on date of birth
   int _calculateAge(DateTime dob) {
-    DateTime currentDate = DateTime.now();
-    int age = currentDate.year - dob.year;
-    if (currentDate.month < dob.month ||
-        (currentDate.month == dob.month && currentDate.day < dob.day)) {
+    final DateTime today = DateTime.now();
+    int age = today.year - dob.year;
+    if (today.month < dob.month ||
+        (today.month == dob.month && today.day < dob.day)) {
       age--;
     }
     return age;
   }
 
-  // Function to add patient to Supabase table
   Future<void> _addPatient() async {
-    if (_name != null && _dob != null && _gender != null && _age != null) {
-      try {
-        final response = await supabase.from('patient').insert({
-          'name': _name,
-          'age': int.parse(_age!), // Convert age to int
-          'gender': _gender,
-          'dob': _dob!.toIso8601String(), // Convert to ISO format for Supabase
-          'currentdate': DateTime.now().toUtc().toIso8601String(), // UTC timestamp
-        }).select(); // Fetch back the inserted row
+    if (!_formKey.currentState!.validate() || _dob == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill all required fields'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
-        if (response == null || response.isEmpty) {
-          print('Error adding patient');
-        } else {
-          print('Patient added: $response');
-          Navigator.pop(context, _name); // Return the name to the previous screen
+    setState(() => _isLoading = true);
+
+    try {
+      // Generate random password
+      final String password = _generatePassword();
+
+      // Insert into the 'patient' table with the password
+      final response = await supabase.from('patients').insert({
+        'name': _nameController.text.trim(),
+        'age': int.parse(_age!),
+        'gender': _gender,
+        'dob': DateFormat('yyyy-MM-dd').format(_dob!),
+        'currentdate': DateTime.now().toUtc().toIso8601String(),
+        'password': password, // Add the generated password
+      }).select();
+
+      if (response != null && response.isNotEmpty) {
+        if (mounted) {
+          // Show success message with the generated password
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Patient added successfully. Password: $password'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+          Navigator.pop(context, _nameController.text);
         }
-      } catch (error) {
-        print('Error adding patient: $error');
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error adding patient: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
