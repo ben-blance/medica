@@ -417,7 +417,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
               'ID: ${_patientData?['id'] ?? 'N/A'}',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.white.withOpacity(0.5),
               ),
             ),
           ),
@@ -520,7 +520,7 @@ class _PatientDetailScreenState extends State<PatientDetailScreen> {
                 if (_medicines[index].startDate != null && _medicines[index].endDate != null)
                   Expanded(
                     child: Text(
-                      "From ${DateFormat('dd/MM/yyyy').format(_medicines[index].startDate!)} to ${DateFormat('dd/MM/yyyy').format(_medicines[index].endDate!)}",
+                      "${DateFormat('dd/MM/yyyy').format(_medicines[index].startDate!)} - ${DateFormat('dd/MM/yyyy').format(_medicines[index].endDate!)}",
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

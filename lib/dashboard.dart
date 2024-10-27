@@ -51,7 +51,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Dr. Mali'),
+        title: Text('Medika'),
         actions: [
           IconButton(icon: Icon(Icons.search), onPressed: () {}),
           IconButton(icon: Icon(Icons.filter_list), onPressed: () {}),
@@ -66,9 +66,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: Colors.blue,
                   radius: 40,
-                  child: Icon(Icons.person, size: 40),
+                  backgroundImage: NetworkImage('https://st4.depositphotos.com/1017986/21088/i/450/depositphotos_210888716-stock-photo-happy-doctor-with-clipboard-at.jpg'),
                 ),
                 SizedBox(width: 16),
                 Expanded(
@@ -80,9 +79,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         style: TextStyle(fontSize: 16, color: Colors.white),
                       ),
                       SizedBox(height: 8),
-                      _buildStatBar("", 50, 50, Colors.red),
-                      _buildStatBar("", 300, 300, Colors.orange),
-                      _buildStatBar("", 42, 42, Colors.blue),
+                      _buildStatBar("AIIMS", 50, 50, Colors.red),
+                      _buildStatBar("MBBS", 300, 300, Colors.orange),
+                      _buildStatBar("MS, FICS, FUS (Surgical Gastroenterology), FIAGES (Laparoscopy)", 42, 42, Colors.blue),
                     ],
                   ),
                 ),
@@ -165,7 +164,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.view_list),
-            label: 'Habits',
+            label: 'Dashboard',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_today),
